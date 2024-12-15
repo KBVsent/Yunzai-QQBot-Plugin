@@ -10,6 +10,11 @@ import urlRegexSafe from "url-regex-safe"
 import { encode as encodeSilk } from "silk-wasm"
 import { Bot as QQBot } from "qq-group-bot"
 import { decode as decodePb } from "./Model/protobuf.js"
+import axios from "axios";
+
+// 设置 axios 的全局默认配置
+axios.defaults.timeout = 60000; // 设置全局超时时间为 60 秒
+axios.defaults.maxContentLength = 50 * 1024 * 1024; // 设置上传文件大小限制为 50MB
 
 const { config, configSave } = await makeConfig("QQBot", {
   tips: "",
