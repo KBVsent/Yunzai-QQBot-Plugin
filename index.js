@@ -488,12 +488,33 @@ const adapter = new class QQBotAdapter {
       if (buffer.length <= size)
         return buffer
 
-      let quality = 105, output
-      do {
-        quality -= 10
+      let minQuality = 10
+      let maxQuality = 100
+      let output
+      let lastGoodOutput
+      let lastGoodQuality
+
+      while (minQuality <= maxQuality) {
+        const quality = Math.floor((minQuality + maxQuality) / 2)
         output = await sharp(buffer).jpeg({ quality }).toBuffer()
-        Bot.makeLog("debug", `图片压缩完成 ${quality}%(${(output.length/1024).toFixed(2)}KB)`, data.self_id)
-      } while (output.length > size && quality > 10)
+        Bot.makeLog("debug", `图片压缩尝试 ${quality}%(${(output.length/1024).toFixed(2)}KB)`, data.self_id)
+
+        if (output.length <= size) {
+          lastGoodOutput = output
+          lastGoodQuality = quality
+          minQuality = quality + 1
+        } else {
+          maxQuality = quality - 1
+        }
+      }
+
+      if (lastGoodOutput) {
+        output = lastGoodOutput;
+        Bot.makeLog("debug", `图片压缩完成 ${lastGoodQuality}%(${(lastGoodOutput.length/1024).toFixed(2)}KB)`, data.self_id)
+      } else {
+        output = await sharp(buffer).jpeg({ quality: 10 }).toBuffer()
+        Bot.makeLog("debug", `图片压缩完成 10%(${(output.length/1024).toFixed(2)}KB)`, data.self_id)
+      }
 
       return output
     } catch (err) {
