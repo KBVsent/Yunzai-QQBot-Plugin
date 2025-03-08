@@ -526,6 +526,7 @@ const adapter = new class QQBotAdapter {
   async makeMsg(data, msg) {
     const messages = [], button = []
     let message = [], reply
+    let pendingText = []
 
     for (let i of Array.isArray(msg) ? msg : [msg]) {
       if (typeof i === "object")
@@ -539,7 +540,9 @@ const adapter = new class QQBotAdapter {
           continue
         case "text":
           if (!i.text || !i.text.trim()) continue
-          break
+          // 文本先存入pendingText数组，不立即放入message
+          pendingText.push(i)
+          continue
         case "face":
         case "ark":
         case "embed":
@@ -549,15 +552,26 @@ const adapter = new class QQBotAdapter {
           i.file = await this.makeRecord(i.file)
         case "video":
         case "image":
-          if (message.length) {
+          if (message.length && !pendingText.length) {
             messages.push(message)
             message = []
           }
 
           if (sharp && i.file)
             i.file = await this.compressImage(data, i.file)
-          break
+
+          message.push(i)
+
+          if (pendingText.length) {
+            message.push(...pendingText)
+            pendingText = []
+          }
+          continue
         case "file":
+          if (pendingText.length) {
+            message.push(...pendingText)
+            pendingText = []
+          }
           if (i.file) i.file = await Bot.fileToUrl(i.file, i)
           i = { type: "text", text: `文件：${i.file}` }
           break
@@ -568,6 +582,10 @@ const adapter = new class QQBotAdapter {
             reply = i
           continue
         case "markdown":
+          if (pendingText.length) {
+            message.push(...pendingText)
+            pendingText = []
+          }
           if (typeof i.data === "object")
             i = { type: "markdown", ...i.data }
           else
@@ -577,10 +595,18 @@ const adapter = new class QQBotAdapter {
           //button.push(...this.makeButtons(data, i.data))
           continue
         case "node":
+          if (pendingText.length) {
+            message.push(...pendingText)
+            pendingText = []
+          }
           for (const { message } of i.data)
             messages.push(...(await this.makeMsg(data, message)))
           continue
         case "raw":
+          if (pendingText.length) {
+            message.push(...pendingText)
+            pendingText = []
+          }
           if (Array.isArray(i.data)) {
             messages.push(i.data)
             continue
@@ -588,6 +614,10 @@ const adapter = new class QQBotAdapter {
           i = i.data
           break
         default:
+          if (pendingText.length) {
+            message.push(...pendingText)
+            pendingText = []
+          }
           i = { type: "text", text: Bot.String(i) }
       }
 
@@ -605,6 +635,10 @@ const adapter = new class QQBotAdapter {
       }
 
       message.push(i)
+    }
+
+    if (pendingText.length) {
+      message.push(...pendingText)
     }
 
     if (message.length)
